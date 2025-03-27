@@ -1,81 +1,46 @@
-# 🤖 AppLayer Otomatik Görev Botu
+# AppLayer Otomatik Görev Botu
 
-Bu bot, AppLayer testnet üzerinde günlük görevleri otomatik olarak tamamlar ve güzel bir arayüz ile durumu gösterir.
+Bu bot, AppLayer Testnet üzerinde otomatik görevleri gerçekleştirmek için tasarlanmıştır.
 
-## ✨ Özellikler
+## Özellikler
 
-- 🎨 Renkli ve modern terminal arayüzü
-- 📊 Gerçek zamanlı durum takibi
-- 📈 İstatistik paneli
-- 🔄 Otomatik görev planlaması
-- 🛡️ Hata yönetimi ve otomatik kurtarma
-- 📝 Detaylı loglama
+- ERC20 kontrat dağıtımı
+- Otomatik işlem gönderimi
+- Renkli konsol çıktısı
+- Hata yönetimi ve loglama
 
-## 🚀 Kurulum
+## Kurulum
 
-1. Repoyu klonlayın:
+1. Depoyu klonlayın:
 ```bash
 git clone https://github.com/getcakedieyoungx/applayer-auto-tasks.git
 cd applayer-auto-tasks
 ```
 
-2. Python sanal ortamı oluşturun:
-```bash
-python3 -m venv venv
-source venv/bin/activate  # Linux için
-```
-
-3. Bağımlılıkları yükleyin:
+2. Gerekli Python paketlerini yükleyin:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Konfigürasyon dosyasını düzenleyin:
+3. Konfigürasyon dosyasını oluşturun:
 ```bash
 cp config.env.example config.env
-nano config.env  # Düzenlemek için
 ```
 
-## 💫 Kullanım
+4. `config.env` dosyasını düzenleyerek gerekli değişkenleri ayarlayın:
+- `PRIVATE_KEY`: Cüzdan özel anahtarınız
+- `RPC_URL`: AppLayer Testnet RPC URL'i
+- `CHAIN_ID`: Ağ ID'si (75338)
+- `CONTRACT_MANAGER`: Kontrat yöneticisi adresi
+- `TASK_INTERVAL`: Görev kontrol aralığı (saat cinsinden)
+
+## Kullanım
 
 Botu başlatmak için:
 ```bash
 python src/main.py
 ```
 
-## 📊 Arayüz
-
-Bot başladığında terminal 3 bölüme ayrılır:
-
-- 📝 **Loglar** (Sol panel)
-  - Gerçek zamanlı log akışı
-  - Renkli ve emojili mesajlar
-
-- 📊 **Durum** (Sağ üst panel)
-  - Cüzdan adresi
-  - APPL bakiyesi
-  - Son işlem
-
-- 📈 **İstatistikler** (Sağ alt panel)
-  - Talep edilen token sayısı
-  - Deploy edilen kontrat sayısı
-  - Hata sayısı
-  - Çalışma süresi
-
-## ⚙️ Konfigürasyon
-
-`config.env` dosyasında şu ayarları yapmalısınız:
-
-```env
-# Cüzdan ayarları
-PRIVATE_KEY=your_private_key_here
-
-# AppLayer Testnet ayarları
-RPC_URL=https://testnet-api.applayer.com/
-CHAIN_ID=75338
-CONTRACT_MANAGER=0x0001cb47ea6d8b55fe44fdd6b1bdb579efb43e61
-```
-
-## 📝 Lisans
+## Lisans
 
 MIT
