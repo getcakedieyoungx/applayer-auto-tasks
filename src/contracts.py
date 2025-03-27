@@ -10,7 +10,7 @@ class ContractManager:
     def __init__(self, wallet):
         self.wallet = wallet
         self.w3 = wallet.w3
-        self.contract_manager_address = "0x0001cb47ea6d8b55fe44fdd6b1bdb579efb43e61"
+        self.contract_manager_address = Web3.to_checksum_address("0x0001cb47ea6d8b55fe44fdd6b1bdb579efb43e61")
         
         # ContractManager ABI
         self.contract_manager_abi = [
