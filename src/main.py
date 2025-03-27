@@ -121,7 +121,7 @@ def main():
                     decimals = 18
                     initial_supply = 1000000 * (10 ** decimals)  # 1 milyon token
                     
-                    receipt = contract_manager.deploy_erc20(
+                    receipt, contract_address = contract_manager.deploy_erc20(
                         token_name,
                         token_symbol,
                         decimals,
@@ -130,11 +130,10 @@ def main():
                     
                     if receipt and receipt.get('status') == 1:
                         tx_hash = receipt.get('transactionHash', b'').hex()
-                        contract_address = receipt.get('contractAddress', 'Bilinmiyor')
                         logging.info(f"{Fore.GREEN}✅ Yeni token başarıyla oluşturuldu:{Style.RESET_ALL}")
                         logging.info(f"{Fore.GREEN}📝 Token Adı: {token_name}{Style.RESET_ALL}")
                         logging.info(f"{Fore.GREEN}🏷️ Sembol: {token_symbol}{Style.RESET_ALL}")
-                        logging.info(f"{Fore.GREEN}📍 Kontrat Adresi: {contract_address}{Style.RESET_ALL}")
+                        logging.info(f"{Fore.GREEN}📍 Kontrat Adresi: {contract_address or 'Beklemede...'}{Style.RESET_ALL}")
                         logging.info(f"{Fore.GREEN}🔗 TX Hash: {tx_hash}{Style.RESET_ALL}")
                         
                         deployments_today += 1
