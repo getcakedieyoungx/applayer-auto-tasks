@@ -15,7 +15,7 @@ class ContractManager:
         # ContractManager ABI
         self.contract_manager_abi = [
             {"inputs":[],"name":"getDeployedContracts","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"string","name":"_name","type":"string"},{"internalType":"string","name":"_symbol","type":"string"},{"internalType":"uint8","name":"_decimals","type":"uint8"},{"internalType":"uint256","name":"_initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"nonpayable","type":"function"}
+            {"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"uint8","name":"decimals","type":"uint8"},{"internalType":"uint256","name":"initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[],"stateMutability":"nonpayable","type":"function"}
         ]
         
         # ERC20 ABI
@@ -51,22 +51,21 @@ class ContractManager:
             # Kontrat adresi çıkarma yöntemleri
             contract_address = None
             
-            # 1. contractAddress alanından kontrol
-            if receipt.get('contractAddress'):
-                contract_address = receipt['contractAddress']
-                logging.debug(f"Kontrat adresi 'contractAddress' alanından bulundu: {contract_address}")
-            
-            # 2. Logs'lardan kontrol
-            elif receipt.get('logs'):
+            # 1. Logs'lardan kontrol
+            if receipt.get('logs'):
                 for log in receipt['logs']:
-                    # İlk log genelde kontrat oluşturma eventi olur
                     if log.get('address'):
                         contract_address = log['address']
                         logging.debug(f"Kontrat adresi log kayıtlarından bulundu: {contract_address}")
                         break
             
-            # 3. to alanından kontrol (eğer varsa)
-            elif receipt.get('to'):
+            # 2. contractAddress alanından kontrol
+            if not contract_address and receipt.get('contractAddress'):
+                contract_address = receipt['contractAddress']
+                logging.debug(f"Kontrat adresi 'contractAddress' alanından bulundu: {contract_address}")
+            
+            # 3. to alanından kontrol
+            if not contract_address and receipt.get('to'):
                 contract_address = receipt['to']
                 logging.debug(f"Kontrat adresi 'to' alanından bulundu: {contract_address}")
             
@@ -88,20 +87,17 @@ class ContractManager:
         try:
             logging.info(f"{Fore.CYAN}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
             
-            # Initial supply'ı int'e çevir
-            initial_supply_wei = int(initial_supply)
-            
             # Deploy işlemini başlat
             tx = self.contract.functions.deployERC20(
-                name,  # Parametre adlarını kaldırdık
+                name,
                 symbol,
                 decimals,
-                initial_supply_wei
+                initial_supply
             ).build_transaction({
                 'from': self.wallet.account.address,
                 'nonce': self.w3.eth.get_transaction_count(self.wallet.account.address),
-                'gas': 3000000,
-                'gasPrice': self.w3.eth.gas_price
+                'gas': 3000000,  # Gas limiti
+                'gasPrice': self.w3.eth.gas_price  # Gas fiyatı
             })
             
             # İşlemi imzala ve gönder
@@ -113,7 +109,14 @@ class ContractManager:
             # Kontrat adresini çıkar
             contract_address = self.get_contract_address_from_receipt(receipt)
             
-            return receipt, contract_address
+            # İşlem başarılı oldu mu?
+            if receipt.status == 1:
+                logging.info(f"{Fore.GREEN}✅ Token kontratı başarıyla deploy edildi!{Style.RESET_ALL}")
+                logging.info(f"{Fore.GREEN}🔗 TX Hash: {receipt['transactionHash'].hex()}{Style.RESET_ALL}")
+                return receipt, contract_address
+            else:
+                logging.error(f"{Fore.RED}❌ Token kontratı deploy edilemedi!{Style.RESET_ALL}")
+                return None, None
             
         except Exception as e:
             logging.error(f"{Fore.RED}❌ ERC20 kontratı deploy edilirken hata: {str(e)}{Style.RESET_ALL}")
