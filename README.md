@@ -19,6 +19,7 @@ cd applayer-auto-tasks
 
 2. Gerekli Python paketlerini yükleyin:
 ```bash
+
 pip install -r requirements.txt
 ```
 
@@ -40,6 +41,14 @@ Botu başlatmak için:
 ```bash
 python src/main.py
 ```
+
+ Join tg, I will post bots there too.
+T.me/getcakedieyoungx
+
+For donations:
+EVM: 0xE065339713A8D9BF897d595ED89150da521a7d09
+
+SOLANA: CcBPMkpMbZ4TWE8HeUWyv9CkEVqPLJ5gYe163g5SR4Vf
 
 ## Lisans
 
