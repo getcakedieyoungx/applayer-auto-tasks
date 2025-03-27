@@ -57,6 +57,29 @@ class ContractManager:
         
         logging.info(f"{Fore.GREEN}📄 Kontrat yöneticisi başlatıldı: {self.contract_manager_address}{Style.RESET_ALL}")
     
+    def get_contract_address_from_receipt(self, receipt):
+        """İşlem makbuzundan kontrat adresini çıkar"""
+        try:
+            # Olayları kontrol et
+            for log in receipt.get('logs', []):
+                # Kontrat oluşturma olayını bul
+                if log.get('address', '').lower() == self.contract_manager_address.lower():
+                    # Kontrat adresi genelde son 20 byte'ta bulunur
+                    topics = log.get('topics', [])
+                    if len(topics) > 0:
+                        # Son topic'ten adresi çıkar
+                        address_bytes = topics[-1][-40:]  # Son 20 byte
+                        return f"0x{address_bytes}"
+            
+            # Eğer olaylardan bulunamazsa, direkt kontrat adresini dene
+            if receipt.get('contractAddress'):
+                return receipt['contractAddress']
+                
+            return None
+        except Exception as e:
+            logging.error(f"{Fore.RED}❌ Kontrat adresi çıkarma hatası: {str(e)}{Style.RESET_ALL}")
+            return None
+    
     def deploy_erc20(self, name, symbol, decimals, initial_supply):
         try:
             logging.info(f"{Fore.YELLOW}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
@@ -79,8 +102,13 @@ class ContractManager:
             # İşlemi imzala ve gönder
             receipt = self.wallet.sign_and_send_transaction(transaction)
             
-            if receipt and receipt['status'] == 1:
-                logging.info(f"{Fore.GREEN}✅ ERC20 kontratı başarıyla deploy edildi: {receipt.get('contractAddress', 'Adres bulunamadı')}{Style.RESET_ALL}")
+            if receipt and receipt.get('status') == 1:
+                # Kontrat adresini bul
+                contract_address = self.get_contract_address_from_receipt(receipt)
+                if contract_address:
+                    logging.info(f"{Fore.GREEN}✅ ERC20 kontratı başarıyla deploy edildi: {contract_address}{Style.RESET_ALL}")
+                else:
+                    logging.warning(f"{Fore.YELLOW}⚠️ Kontrat deploy edildi fakat adres bulunamadı{Style.RESET_ALL}")
             else:
                 logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment başarısız{Style.RESET_ALL}")
                 
