@@ -88,23 +88,26 @@ class ContractManager:
             logging.info(f"{Fore.CYAN}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
             
             # Deploy işlemini başlat
-            tx = self.contract.functions.deployERC20(
+            nonce = self.w3.eth.get_transaction_count(self.wallet.account.address)
+            
+            contract_txn = self.contract.functions.deployERC20(
                 name,
                 symbol,
                 decimals,
                 initial_supply
             ).build_transaction({
-                'from': self.wallet.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.wallet.account.address),
-                'gas': 3000000,  # Gas limiti
-                'gasPrice': self.w3.eth.gas_price  # Gas fiyatı
+                'chainId': int(os.getenv('CHAIN_ID')),
+                'gas': 3000000,
+                'gasPrice': self.w3.eth.gas_price,
+                'nonce': nonce,
             })
             
             # İşlemi imzala ve gönder
-            signed_tx = self.wallet.sign_and_send_transaction(tx)
+            signed_txn = self.wallet.account.sign_transaction(contract_txn)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
             
             # İşlem makbuzunu al
-            receipt = self.w3.eth.wait_for_transaction_receipt(signed_tx)
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
             
             # Kontrat adresini çıkar
             contract_address = self.get_contract_address_from_receipt(receipt)
