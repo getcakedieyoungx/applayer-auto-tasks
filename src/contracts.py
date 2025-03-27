@@ -10,21 +10,12 @@ class ContractManager:
     def __init__(self, wallet):
         self.wallet = wallet
         self.w3 = wallet.w3
-        self.contract_manager_address = Web3.to_checksum_address(os.getenv('CONTRACT_MANAGER'))
+        self.contract_manager_address = "0x0001cb47ea6d8b55fe44fdd6b1bdb579efb43e61"
         
         # ContractManager ABI
         self.contract_manager_abi = [
-            {"inputs":[],"name":"getDeployedContracts","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"uint8","name":"decimals","type":"uint8"},{"internalType":"uint256","name":"initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[],"stateMutability":"nonpayable","type":"function"}
-        ]
-        
-        # ERC20 ABI
-        self.erc20_abi = [
-            {"inputs":[{"internalType":"string","name":"name_","type":"string"},{"internalType":"string","name":"symbol_","type":"string"},{"internalType":"uint8","name":"decimals_","type":"uint8"},{"internalType":"uint256","name":"initialSupply_","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},
-            {"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},
-            {"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+            {"inputs":[],"name":"getDeployedContracts","outputs":[{"components":[{"internalType":"string","name":"name","type":"string"},{"internalType":"address","name":"addr","type":"address"}],"internalType":"struct ContractManager.Contract[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"ticket","type":"string"},{"internalType":"uint8","name":"decimals","type":"uint8"},{"internalType":"uint256","name":"mintValue","type":"uint256"}],"name":"createNewERC20Contract","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"nonpayable","type":"function"}
         ]
         
         self.contract = self.w3.eth.contract(
@@ -41,18 +32,6 @@ class ContractManager:
             logging.error(f"{Fore.RED}❌ Deploy edilmiş kontratlar alınırken hata: {str(e)}{Style.RESET_ALL}")
             return []
 
-    def get_contract_address_from_receipt(self, receipt):
-        """İşlem makbuzundan kontrat adresini çıkarır"""
-        try:
-            if receipt and receipt.get('contractAddress'):
-                contract_address = Web3.to_checksum_address(receipt['contractAddress'])
-                logging.info(f"{Fore.GREEN}✅ Kontrat adresi başarıyla çıkarıldı: {contract_address}{Style.RESET_ALL}")
-                return contract_address
-            return None
-        except Exception as e:
-            logging.error(f"{Fore.RED}❌ Kontrat adresi çıkarılırken hata: {str(e)}{Style.RESET_ALL}")
-            return None
-
     def deploy_erc20(self, name, symbol, decimals, initial_supply):
         """Yeni bir ERC20 token kontratı deploy eder"""
         try:
@@ -66,14 +45,14 @@ class ContractManager:
             priority_fee = 2_000_000_000  # 2 Gwei
             max_fee = int(base_fee * 1.1) + priority_fee
             
-            contract_txn = self.contract.functions.deployERC20(
+            contract_txn = self.contract.functions.createNewERC20Contract(
                 name,
                 symbol,
                 decimals,
                 initial_supply
             ).build_transaction({
                 'chainId': int(os.getenv('CHAIN_ID')),
-                'gas': 3000000,
+                'gas': 100000,  # Precompile deploy gas cost
                 'maxFeePerGas': max_fee,
                 'maxPriorityFeePerGas': priority_fee,
                 'nonce': nonce,
@@ -87,14 +66,19 @@ class ContractManager:
             # İşlem makbuzunu al
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
             
-            # Kontrat adresini çıkar
-            contract_address = self.get_contract_address_from_receipt(receipt)
+            # İşlem başarılı mı kontrol et
+            if receipt['status'] == 1:
+                # Deploy edilen kontratları al
+                contracts = self.get_deployed_contracts()
+                # En son deploy edilen kontratı bul
+                if contracts:
+                    latest_contract = contracts[-1]
+                    contract_address = latest_contract['addr']
+                    logging.info(f"{Fore.GREEN}✅ Token kontratı başarıyla deploy edildi: {contract_address}{Style.RESET_ALL}")
+                    return receipt, contract_address
             
-            if contract_address:
-                return receipt, contract_address
-            else:
-                logging.error(f"{Fore.RED}❌ Token kontratı deploy edilemedi!{Style.RESET_ALL}")
-                return None, None
+            logging.error(f"{Fore.RED}❌ Token kontratı deploy edilemedi!{Style.RESET_ALL}")
+            return None, None
             
         except Exception as e:
             logging.error(f"{Fore.RED}❌ ERC20 kontratı deploy edilirken hata: {str(e)}{Style.RESET_ALL}")
