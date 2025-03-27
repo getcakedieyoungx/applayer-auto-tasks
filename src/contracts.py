@@ -90,6 +90,14 @@ class ContractManager:
             # Deploy işlemini başlat
             nonce = self.w3.eth.get_transaction_count(self.wallet.account.address)
             
+            # Gas hesaplamaları
+            base_fee = self.w3.eth.get_block('latest')['baseFeePerGas']
+            priority_fee = 2_000_000_000  # 2 Gwei
+            max_fee = base_fee + priority_fee
+            
+            # %10 buffer ekle
+            max_fee = int(max_fee * 1.1)
+            
             contract_txn = self.contract.functions.deployERC20(
                 name,
                 symbol,
@@ -98,8 +106,10 @@ class ContractManager:
             ).build_transaction({
                 'chainId': int(os.getenv('CHAIN_ID')),
                 'gas': 3000000,
-                'gasPrice': self.w3.eth.gas_price,
+                'maxFeePerGas': max_fee,
+                'maxPriorityFeePerGas': priority_fee,
                 'nonce': nonce,
+                'type': 2  # EIP-1559
             })
             
             # İşlemi imzala ve gönder
