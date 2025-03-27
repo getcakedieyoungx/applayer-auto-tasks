@@ -95,8 +95,8 @@ class ContractManager:
                 decimals,
                 initial_supply
             ).build_transaction({
-                'from': self.wallet.address,
-                'nonce': self.w3.eth.get_transaction_count(self.wallet.address),
+                'from': self.wallet.public_key,  # wallet.address yerine wallet.public_key kullanıyoruz
+                'nonce': self.w3.eth.get_transaction_count(self.wallet.public_key),
             })
             
             # İşlemi imzala ve gönder
