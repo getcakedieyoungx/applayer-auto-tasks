@@ -12,7 +12,7 @@ class ContractManager:
         self.w3 = wallet.w3
         self.contract_manager_address = Web3.to_checksum_address(os.getenv('CONTRACT_MANAGER'))
         
-        # ContractManager ABI - Güncellenmiş versiyon
+        # ContractManager ABI
         self.contract_manager_abi = [
             {"inputs":[],"name":"getDeployedContracts","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
             {"inputs":[{"internalType":"string","name":"_name","type":"string"},{"internalType":"string","name":"_symbol","type":"string"},{"internalType":"uint8","name":"_decimals","type":"uint8"},{"internalType":"uint256","name":"_initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"nonpayable","type":"function"}
@@ -88,16 +88,19 @@ class ContractManager:
         try:
             logging.info(f"{Fore.CYAN}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
             
+            # Initial supply'ı int'e çevir
+            initial_supply_wei = int(initial_supply)
+            
             # Deploy işlemini başlat
             tx = self.contract.functions.deployERC20(
-                _name=name,  # Parametre adları güncellendi
-                _symbol=symbol,
-                _decimals=decimals,
-                _initialSupply=initial_supply
+                name,  # Parametre adlarını kaldırdık
+                symbol,
+                decimals,
+                initial_supply_wei
             ).build_transaction({
                 'from': self.wallet.account.address,
                 'nonce': self.w3.eth.get_transaction_count(self.wallet.account.address),
-                'gas': 3000000,  # Gas limiti eklendi
+                'gas': 3000000,
                 'gasPrice': self.w3.eth.gas_price
             })
             
