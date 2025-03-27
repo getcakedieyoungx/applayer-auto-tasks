@@ -56,20 +56,31 @@ class Wallet:
             return 0
     
     def sign_and_send_transaction(self, transaction):
-        """İşlemi imzala ve gönder"""
+        """İşlemi imzala ve gönder (EIP-1559 formatında)"""
         try:
             # Nonce'u al
             nonce = self.w3.eth.get_transaction_count(self.account.address)
             
-            # İşlem detaylarını hazırla
+            # Son blok bilgilerini al
+            latest_block = self.w3.eth.get_block('latest')
+            base_fee = latest_block['baseFeePerGas']
+            
+            # Priority fee için makul bir değer belirle (2 Gwei)
+            priority_fee = self.w3.to_wei(2, 'gwei')
+            
+            # Max fee hesapla (base fee + priority fee + %10 buffer)
+            max_fee = int(base_fee * 1.1) + priority_fee
+            
+            # İşlem detaylarını hazırla (EIP-1559 formatında)
             tx = {
                 'chainId': self.chain_id,
-                'gas': transaction['gas'],
-                'gasPrice': self.w3.eth.gas_price,
                 'nonce': nonce,
-                'from': self.account.address,
+                'maxFeePerGas': max_fee,
+                'maxPriorityFeePerGas': priority_fee,
+                'gas': transaction['gas'],
                 'to': transaction['to'],
-                'data': transaction['data']
+                'data': transaction['data'],
+                'type': 2  # EIP-1559
             }
             
             # İşlemi imzala
