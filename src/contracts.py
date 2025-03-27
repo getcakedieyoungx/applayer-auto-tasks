@@ -3,6 +3,7 @@ import json
 import os
 from dotenv import load_dotenv
 import logging
+from colorama import Fore, Style
 
 class ContractManager:
     def __init__(self, wallet):
@@ -54,43 +55,46 @@ class ContractManager:
             abi=self.abi
         )
         
-        logging.info(f'📄 Kontrat yöneticisi başlatıldı: {self.contract_manager_address}')
+        logging.info(f"{Fore.GREEN}📄 Kontrat yöneticisi başlatıldı: {self.contract_manager_address}{Style.RESET_ALL}")
     
     def deploy_erc20(self, name, symbol, decimals, initial_supply):
         try:
-            logging.info(f'🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol})')
+            logging.info(f"{Fore.YELLOW}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
+            
+            # Kontrat fonksiyonunu hazırla
+            function = self.contract.functions.createNewERC20Contract(
+                name, symbol, decimals, initial_supply
+            )
             
             # Gas tahmini
-            gas_estimate = self.contract.functions.createNewERC20Contract(
-                name, symbol, decimals, initial_supply
-            ).estimate_gas({'from': self.wallet.account.address})
+            gas_estimate = function.estimate_gas({'from': self.wallet.account.address})
             
-            # Kontrat oluşturma işlemi
-            tx_hash = self.contract.functions.createNewERC20Contract(
-                name, symbol, decimals, initial_supply
-            ).transact({
-                'from': self.wallet.account.address,
+            # İşlem verilerini hazırla
+            transaction = {
+                'to': self.contract_manager_address,
+                'data': function._encode_transaction_data(),
                 'gas': gas_estimate
-            })
+            }
             
-            # İşlem onayını bekle
-            receipt = self.wallet.w3.eth.wait_for_transaction_receipt(tx_hash)
+            # İşlemi imzala ve gönder
+            receipt = self.wallet.sign_and_send_transaction(transaction)
             
-            if receipt['status'] == 1:
-                logging.info(f'✅ ERC20 kontratı başarıyla deploy edildi: {receipt["contractAddress"]}')
+            if receipt and receipt['status'] == 1:
+                logging.info(f"{Fore.GREEN}✅ ERC20 kontratı başarıyla deploy edildi: {receipt.get('contractAddress', 'Adres bulunamadı')}{Style.RESET_ALL}")
             else:
-                logging.error('❌ ERC20 kontrat deployment başarısız')
+                logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment başarısız{Style.RESET_ALL}")
                 
             return receipt
+            
         except Exception as e:
-            logging.error(f'❌ ERC20 kontrat deployment hatası: {str(e)}')
+            logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment hatası: {str(e)}{Style.RESET_ALL}")
             return None
     
     def get_deployed_contracts(self):
         try:
             contracts = self.contract.functions.getDeployedContracts().call()
-            logging.info(f'📋 {len(contracts)} adet deploy edilmiş kontrat bulundu')
+            logging.info(f"{Fore.CYAN}📋 {len(contracts)} adet deploy edilmiş kontrat bulundu{Style.RESET_ALL}")
             return contracts
         except Exception as e:
-            logging.error(f'❌ Deploy edilmiş kontratları alma hatası: {str(e)}')
+            logging.error(f"{Fore.RED}❌ Deploy edilmiş kontratları alma hatası: {str(e)}{Style.RESET_ALL}")
             return []
