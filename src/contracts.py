@@ -12,10 +12,10 @@ class ContractManager:
         self.w3 = wallet.w3
         self.contract_manager_address = Web3.to_checksum_address(os.getenv('CONTRACT_MANAGER'))
         
-        # ContractManager ABI
+        # ContractManager ABI - Güncellenmiş versiyon
         self.contract_manager_abi = [
             {"inputs":[],"name":"getDeployedContracts","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
-            {"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"uint8","name":"decimals","type":"uint8"},{"internalType":"uint256","name":"initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[],"stateMutability":"nonpayable","type":"function"}
+            {"inputs":[{"internalType":"string","name":"_name","type":"string"},{"internalType":"string","name":"_symbol","type":"string"},{"internalType":"uint8","name":"_decimals","type":"uint8"},{"internalType":"uint256","name":"_initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"nonpayable","type":"function"}
         ]
         
         # ERC20 ABI
@@ -90,13 +90,15 @@ class ContractManager:
             
             # Deploy işlemini başlat
             tx = self.contract.functions.deployERC20(
-                name,
-                symbol,
-                decimals,
-                initial_supply
+                _name=name,  # Parametre adları güncellendi
+                _symbol=symbol,
+                _decimals=decimals,
+                _initialSupply=initial_supply
             ).build_transaction({
-                'from': self.wallet.account.address,  # Doğru değişken adı: account.address
+                'from': self.wallet.account.address,
                 'nonce': self.w3.eth.get_transaction_count(self.wallet.account.address),
+                'gas': 3000000,  # Gas limiti eklendi
+                'gasPrice': self.w3.eth.gas_price
             })
             
             # İşlemi imzala ve gönder
