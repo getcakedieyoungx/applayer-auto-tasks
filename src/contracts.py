@@ -11,9 +11,12 @@ class ContractManager:
         load_dotenv(dotenv_path)
         
         self.wallet = wallet
-        self.contract_manager_address = os.getenv('CONTRACT_MANAGER')
-        if not self.contract_manager_address:
+        contract_manager = os.getenv('CONTRACT_MANAGER')
+        if not contract_manager:
             raise ValueError("CONTRACT_MANAGER address not found in config.env")
+            
+        # Adresi checksum formatına dönüştür
+        self.contract_manager_address = Web3.to_checksum_address(contract_manager)
         
         # Contract Manager ABI
         self.abi = [
