@@ -72,8 +72,8 @@ class ContractManager:
                 contracts = self.get_deployed_contracts()
                 # En son deploy edilen kontratı bul
                 if contracts:
-                    latest_contract = contracts[-1]
-                    contract_address = latest_contract['addr']
+                    latest_contract = contracts[-1]  # Son kontratı al
+                    contract_address = latest_contract[1]  # addr ikinci eleman (index 1)
                     logging.info(f"{Fore.GREEN}✅ Token kontratı başarıyla deploy edildi: {contract_address}{Style.RESET_ALL}")
                     return receipt, contract_address
             
