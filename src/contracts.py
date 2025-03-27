@@ -44,40 +44,11 @@ class ContractManager:
     def get_contract_address_from_receipt(self, receipt):
         """İşlem makbuzundan kontrat adresini çıkarır"""
         try:
-            # Debug logları
-            logging.debug(f"İşlem makbuzu detayları:")
-            logging.debug(json.dumps(dict(receipt), indent=2, default=str))
-            
-            # Kontrat adresi çıkarma yöntemleri
-            contract_address = None
-            
-            # 1. Logs'lardan kontrol
-            if receipt.get('logs'):
-                for log in receipt['logs']:
-                    if log.get('address'):
-                        contract_address = log['address']
-                        logging.debug(f"Kontrat adresi log kayıtlarından bulundu: {contract_address}")
-                        break
-            
-            # 2. contractAddress alanından kontrol
-            if not contract_address and receipt.get('contractAddress'):
-                contract_address = receipt['contractAddress']
-                logging.debug(f"Kontrat adresi 'contractAddress' alanından bulundu: {contract_address}")
-            
-            # 3. to alanından kontrol
-            if not contract_address and receipt.get('to'):
-                contract_address = receipt['to']
-                logging.debug(f"Kontrat adresi 'to' alanından bulundu: {contract_address}")
-            
-            if contract_address:
-                # Adresi checksum formatına çevir
-                contract_address = Web3.to_checksum_address(contract_address)
+            if receipt and receipt.get('contractAddress'):
+                contract_address = Web3.to_checksum_address(receipt['contractAddress'])
                 logging.info(f"{Fore.GREEN}✅ Kontrat adresi başarıyla çıkarıldı: {contract_address}{Style.RESET_ALL}")
                 return contract_address
-            else:
-                logging.warning(f"{Fore.YELLOW}⚠️ Kontrat adresi bulunamadı. İşlem beklemede olabilir.{Style.RESET_ALL}")
-                return None
-                
+            return None
         except Exception as e:
             logging.error(f"{Fore.RED}❌ Kontrat adresi çıkarılırken hata: {str(e)}{Style.RESET_ALL}")
             return None
@@ -93,10 +64,7 @@ class ContractManager:
             # Gas hesaplamaları
             base_fee = self.w3.eth.get_block('latest')['baseFeePerGas']
             priority_fee = 2_000_000_000  # 2 Gwei
-            max_fee = base_fee + priority_fee
-            
-            # %10 buffer ekle
-            max_fee = int(max_fee * 1.1)
+            max_fee = int(base_fee * 1.1) + priority_fee
             
             contract_txn = self.contract.functions.deployERC20(
                 name,
@@ -122,10 +90,7 @@ class ContractManager:
             # Kontrat adresini çıkar
             contract_address = self.get_contract_address_from_receipt(receipt)
             
-            # İşlem başarılı oldu mu?
-            if receipt['status'] == 1:  # status kontrolü düzeltildi
-                logging.info(f"{Fore.GREEN}✅ Token kontratı başarıyla deploy edildi!{Style.RESET_ALL}")
-                logging.info(f"{Fore.GREEN}🔗 TX Hash: {receipt['transactionHash'].hex()}{Style.RESET_ALL}")
+            if contract_address:
                 return receipt, contract_address
             else:
                 logging.error(f"{Fore.RED}❌ Token kontratı deploy edilemedi!{Style.RESET_ALL}")
