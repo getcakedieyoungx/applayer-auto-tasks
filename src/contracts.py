@@ -123,7 +123,7 @@ class ContractManager:
             contract_address = self.get_contract_address_from_receipt(receipt)
             
             # İşlem başarılı oldu mu?
-            if receipt.status == 1:
+            if receipt['status'] == 1:  # status kontrolü düzeltildi
                 logging.info(f"{Fore.GREEN}✅ Token kontratı başarıyla deploy edildi!{Style.RESET_ALL}")
                 logging.info(f"{Fore.GREEN}🔗 TX Hash: {receipt['transactionHash'].hex()}{Style.RESET_ALL}")
                 return receipt, contract_address
