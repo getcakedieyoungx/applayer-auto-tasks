@@ -1,11 +1,29 @@
 import os
 import time
 import logging
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 from colorama import Fore, Style, init
 from dotenv import load_dotenv
 from wallet import Wallet
 from contracts import ContractManager
+
+# ASCII Banner
+banner = '''
+ ██████╗ ███████╗████████╗ ██████╗ █████╗ ██╗  ██╗███████╗       
+██╔════╝ ██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║ ██╔╝██╔════╝       
+██║  ███╗█████╗     ██║   ██║     ███████║█████╔╝ █████╗         
+██║   ██║██╔══╝     ██║   ██║     ██╔══██║██╔═██╗ ██╔══╝         
+╚██████╔╝███████╗   ██║   ╚██████╗██║  ██║██║  ██╗███████╗       
+ ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝       
+██████╗ ██╗███████╗██╗   ██╗ ██████╗ ██╗   ██╗███╗   ██╗ ██████╗ 
+██╔══██╗██║██╔════╝╚██╗ ██╔╝██╔═══██╗██║   ██║████╗  ██║██╔════╝ 
+██║  ██║██║█████╗   ╚████╔╝ ██║   ██║██║   ██║██╔██╗ ██║██║  ███╗
+██║  ██║██║██╔══╝    ╚██╔╝  ██║   ██║██║   ██║██║╚██╗██║██║   ██║
+██████╔╝██║███████╗   ██║   ╚██████╔╝╚██████╔╝██║ ╚████║╚██████╔╝
+╚═════╝ ╚═╝╚══════╝   ╚═╝    ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ 
+       GETCAKE DIEYOUNGX - t.me/getcakedieyoungx
+'''
 
 # Colorama'yı başlat
 init(autoreset=True)
@@ -19,6 +37,15 @@ logging.basicConfig(
         logging.FileHandler('bot.log')
     ]
 )
+
+def get_random_deployment_count():
+    """24 saatlik periyotta kaç deployment yapılacağını belirle"""
+    return random.randint(3, 4)
+
+def get_next_deployment_time(last_deployment):
+    """Bir sonraki deployment zamanını hesapla"""
+    hours_until_next = random.uniform(4, 8)  # 4-8 saat arası
+    return last_deployment + timedelta(hours=hours_until_next)
 
 def setup():
     """Bot başlangıç ayarlarını yapar"""
@@ -44,6 +71,7 @@ def setup():
 
 def main():
     """Ana bot döngüsü"""
+    print(f"\n{Fore.CYAN}{banner}{Style.RESET_ALL}\n")
     print(f"\n{Fore.CYAN}🤖 AppLayer Otomatik Görev Botu Başlatılıyor...{Style.RESET_ALL}\n")
     
     # Bot ayarlarını yükle
@@ -60,16 +88,26 @@ def main():
         balance = wallet.get_balance()
         logging.info(f"{Fore.GREEN}💰 Cüzdan bakiyesi: {balance} ETH{Style.RESET_ALL}")
         
-        # Ana döngü
-        task_interval = int(os.getenv('TASK_INTERVAL', '24')) * 3600  # Saat -> saniye
-        last_check = 0
+        # Deployment değişkenlerini ayarla
+        daily_deployments = get_random_deployment_count()
+        deployments_today = 0
+        last_deployment = datetime.now() - timedelta(hours=24)  # İlk deployment'ı hemen yap
+        next_deployment = datetime.now()
+        
+        logging.info(f"{Fore.YELLOW}ℹ️ Bugün {daily_deployments} adet token deploy edilecek{Style.RESET_ALL}")
         
         while True:
             try:
-                current_time = time.time()
+                current_time = datetime.now()
                 
-                # Task aralığını kontrol et
-                if current_time - last_check >= task_interval:
+                # Yeni gün kontrolü
+                if current_time.date() > last_deployment.date():
+                    daily_deployments = get_random_deployment_count()
+                    deployments_today = 0
+                    logging.info(f"{Fore.YELLOW}ℹ️ Yeni gün başladı. Bugün {daily_deployments} adet token deploy edilecek{Style.RESET_ALL}")
+                
+                # Deployment zamanı geldi mi ve günlük limit dolmadı mı?
+                if current_time >= next_deployment and deployments_today < daily_deployments:
                     logging.info(f"{Fore.YELLOW}🔍 Görevler kontrol ediliyor...{Style.RESET_ALL}")
                     
                     # Deploy edilmiş kontratları listele
@@ -79,7 +117,7 @@ def main():
                     # Yeni ERC20 kontratı oluştur
                     timestamp = str(int(time.time()))
                     token_name = f"TestToken_{timestamp}"
-                    token_symbol = f"TT{timestamp[-4:]}"  # Son 4 karakteri al
+                    token_symbol = f"TT{timestamp[-4:]}"
                     decimals = 18
                     initial_supply = 1000000 * (10 ** decimals)  # 1 milyon token
                     
@@ -91,11 +129,24 @@ def main():
                     )
                     
                     if receipt and receipt.get('status') == 1:
-                        logging.info(f"{Fore.GREEN}✅ Yeni token başarıyla oluşturuldu: {token_name}{Style.RESET_ALL}")
+                        tx_hash = receipt.get('transactionHash', b'').hex()
+                        contract_address = receipt.get('contractAddress', 'Bilinmiyor')
+                        logging.info(f"{Fore.GREEN}✅ Yeni token başarıyla oluşturuldu:{Style.RESET_ALL}")
+                        logging.info(f"{Fore.GREEN}📝 Token Adı: {token_name}{Style.RESET_ALL}")
+                        logging.info(f"{Fore.GREEN}🏷️ Sembol: {token_symbol}{Style.RESET_ALL}")
+                        logging.info(f"{Fore.GREEN}📍 Kontrat Adresi: {contract_address}{Style.RESET_ALL}")
+                        logging.info(f"{Fore.GREEN}🔗 TX Hash: {tx_hash}{Style.RESET_ALL}")
+                        
+                        deployments_today += 1
+                        last_deployment = current_time
+                        next_deployment = get_next_deployment_time(last_deployment)
+                        
+                        remaining = daily_deployments - deployments_today
+                        next_time = next_deployment.strftime('%H:%M:%S')
+                        logging.info(f"{Fore.YELLOW}ℹ️ Bugün {remaining} deployment kaldı. Sonraki deployment: {next_time}{Style.RESET_ALL}")
                     else:
                         logging.error(f"{Fore.RED}❌ Token oluşturma başarısız{Style.RESET_ALL}")
-                    
-                    last_check = current_time
+                        next_deployment = current_time + timedelta(minutes=5)  # 5 dakika sonra tekrar dene
                 
                 # CPU kullanımını azaltmak için kısa bir bekleme
                 time.sleep(5)
