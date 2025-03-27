@@ -77,8 +77,9 @@ def main():
                     logging.info(f"{Fore.CYAN}📋 Toplam {len(contracts)} kontrat bulundu{Style.RESET_ALL}")
                     
                     # Yeni ERC20 kontratı oluştur
-                    token_name = f"TestToken_{int(time.time())}"
-                    token_symbol = f"TT{int(time.time())[-4:]}"
+                    timestamp = str(int(time.time()))
+                    token_name = f"TestToken_{timestamp}"
+                    token_symbol = f"TT{timestamp[-4:]}"  # Son 4 karakteri al
                     decimals = 18
                     initial_supply = 1000000 * (10 ** decimals)  # 1 milyon token
                     
@@ -89,7 +90,7 @@ def main():
                         initial_supply
                     )
                     
-                    if receipt and receipt['status'] == 1:
+                    if receipt and receipt.get('status') == 1:
                         logging.info(f"{Fore.GREEN}✅ Yeni token başarıyla oluşturuldu: {token_name}{Style.RESET_ALL}")
                     else:
                         logging.error(f"{Fore.RED}❌ Token oluşturma başarısız{Style.RESET_ALL}")
