@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import logging
 from colorama import Fore, Style
+import time
 
 class ContractManager:
     def __init__(self, wallet):
@@ -57,25 +58,61 @@ class ContractManager:
         
         logging.info(f"{Fore.GREEN}📄 Kontrat yöneticisi başlatıldı: {self.contract_manager_address}{Style.RESET_ALL}")
     
-    def get_contract_address_from_receipt(self, receipt):
+    def get_contract_address_from_receipt(self, receipt, token_name):
         """İşlem makbuzundan kontrat adresini çıkar"""
         try:
+            # İlk olarak son deploy edilen kontratları kontrol et
+            before_contracts = set(c[1] for c in self.get_deployed_contracts())
+            time.sleep(2)  # Blockchain'in güncellemesi için kısa bir bekleme
+            after_contracts = set(c[1] for c in self.get_deployed_contracts())
+            
+            # Yeni eklenen kontratı bul
+            new_contracts = after_contracts - before_contracts
+            if len(new_contracts) == 1:
+                new_contract = list(new_contracts)[0]
+                logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (liste karşılaştırma): {new_contract}{Style.RESET_ALL}")
+                return new_contract
+            
+            # Eğer direkt kontrat adresi varsa
+            if receipt.get('contractAddress'):
+                addr = receipt['contractAddress']
+                logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (receipt): {addr}{Style.RESET_ALL}")
+                return addr
+            
             # Olayları kontrol et
             for log in receipt.get('logs', []):
+                # Debug: Her log'u göster
+                logging.debug(f"Log inceleniyor: {log}")
+                
                 # Kontrat oluşturma olayını bul
                 if log.get('address', '').lower() == self.contract_manager_address.lower():
-                    # Kontrat adresi genelde son 20 byte'ta bulunur
                     topics = log.get('topics', [])
                     if len(topics) > 0:
                         # Son topic'ten adresi çıkar
-                        address_bytes = topics[-1][-40:]  # Son 20 byte
-                        return f"0x{address_bytes}"
-            
-            # Eğer olaylardan bulunamazsa, direkt kontrat adresini dene
-            if receipt.get('contractAddress'):
-                return receipt['contractAddress']
+                        address_bytes = topics[-1][-40:]
+                        addr = f"0x{address_bytes}"
+                        logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (log): {addr}{Style.RESET_ALL}")
+                        return addr
                 
+                # Data'dan kontrat adresini çıkarmayı dene
+                data = log.get('data', '')
+                if len(data) >= 42:  # En az bir adres uzunluğunda
+                    potential_addresses = [data[i:i+42] for i in range(0, len(data)-40, 2) if data[i:i+2] == '0x']
+                    for addr in potential_addresses:
+                        if Web3.is_address(addr):
+                            logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (data): {addr}{Style.RESET_ALL}")
+                            return addr
+            
+            # Son çare: Tüm kontratları tara
+            all_contracts = self.get_deployed_contracts()
+            for contract in all_contracts:
+                if contract[0] == token_name:  # İsim eşleşmesi
+                    logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (isim eşleşmesi): {contract[1]}{Style.RESET_ALL}")
+                    return contract[1]
+            
+            logging.warning(f"{Fore.YELLOW}⚠️ Kontrat adresi bulunamadı{Style.RESET_ALL}")
             return None
+            
         except Exception as e:
             logging.error(f"{Fore.RED}❌ Kontrat adresi çıkarma hatası: {str(e)}{Style.RESET_ALL}")
             return None
@@ -104,7 +141,7 @@ class ContractManager:
             
             if receipt and receipt.get('status') == 1:
                 # Kontrat adresini bul
-                contract_address = self.get_contract_address_from_receipt(receipt)
+                contract_address = self.get_contract_address_from_receipt(receipt, name)
                 if contract_address:
                     logging.info(f"{Fore.GREEN}✅ ERC20 kontratı başarıyla deploy edildi: {contract_address}{Style.RESET_ALL}")
                 else:
@@ -112,11 +149,11 @@ class ContractManager:
             else:
                 logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment başarısız{Style.RESET_ALL}")
                 
-            return receipt
+            return receipt, contract_address
             
         except Exception as e:
             logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment hatası: {str(e)}{Style.RESET_ALL}")
-            return None
+            return None, None
     
     def get_deployed_contracts(self):
         try:
