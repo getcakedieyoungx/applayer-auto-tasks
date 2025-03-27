@@ -1,165 +1,115 @@
-from web3 import Web3
-import json
 import os
-from dotenv import load_dotenv
-import logging
-from colorama import Fore, Style
+import json
 import time
+import logging
+from web3 import Web3
+from eth_account.messages import encode_defunct
+from colorama import Fore, Style
 
 class ContractManager:
     def __init__(self, wallet):
-        # .env dosyasını doğru yoldan yükle
-        dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.env')
-        load_dotenv(dotenv_path)
-        
         self.wallet = wallet
-        contract_manager = os.getenv('CONTRACT_MANAGER')
-        if not contract_manager:
-            raise ValueError("CONTRACT_MANAGER address not found in config.env")
-            
-        # Adresi checksum formatına dönüştür
-        self.contract_manager_address = Web3.to_checksum_address(contract_manager)
+        self.w3 = wallet.w3
+        self.contract_manager_address = Web3.to_checksum_address(os.getenv('CONTRACT_MANAGER'))
         
-        # Contract Manager ABI
-        self.abi = [
-            {
-                "inputs": [
-                    {"internalType": "string", "name": "name", "type": "string"},
-                    {"internalType": "string", "name": "ticket", "type": "string"},
-                    {"internalType": "uint8", "name": "decimals", "type": "uint8"},
-                    {"internalType": "uint256", "name": "mintValue", "type": "uint256"}
-                ],
-                "name": "createNewERC20Contract",
-                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "getDeployedContracts",
-                "outputs": [{
-                    "components": [
-                        {"internalType": "string", "name": "name", "type": "string"},
-                        {"internalType": "address", "name": "addr", "type": "address"}
-                    ],
-                    "internalType": "struct ContractManager.Contract[]",
-                    "name": "",
-                    "type": "tuple[]"
-                }],
-                "stateMutability": "view",
-                "type": "function"
-            }
+        # ContractManager ABI
+        self.contract_manager_abi = [
+            {"inputs":[],"name":"getDeployedContracts","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"symbol","type":"string"},{"internalType":"uint8","name":"decimals","type":"uint8"},{"internalType":"uint256","name":"initialSupply","type":"uint256"}],"name":"deployERC20","outputs":[],"stateMutability":"nonpayable","type":"function"}
         ]
         
-        self.contract = self.wallet.w3.eth.contract(
-            address=self.contract_manager_address,
-            abi=self.abi
-        )
+        # ERC20 ABI
+        self.erc20_abi = [
+            {"inputs":[{"internalType":"string","name":"name_","type":"string"},{"internalType":"string","name":"symbol_","type":"string"},{"internalType":"uint8","name":"decimals_","type":"uint8"},{"internalType":"uint256","name":"initialSupply_","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},
+            {"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+        ]
         
-        logging.info(f"{Fore.GREEN}📄 Kontrat yöneticisi başlatıldı: {self.contract_manager_address}{Style.RESET_ALL}")
+        self.contract = self.w3.eth.contract(
+            address=self.contract_manager_address,
+            abi=self.contract_manager_abi
+        )
     
-    def get_contract_address_from_receipt(self, receipt, token_name):
-        """İşlem makbuzundan kontrat adresini çıkar"""
+    def get_deployed_contracts(self):
+        """Deploy edilmiş kontratları listeler"""
         try:
-            # İlk olarak son deploy edilen kontratları kontrol et
-            before_contracts = set(c[1] for c in self.get_deployed_contracts())
-            time.sleep(2)  # Blockchain'in güncellemesi için kısa bir bekleme
-            after_contracts = set(c[1] for c in self.get_deployed_contracts())
-            
-            # Yeni eklenen kontratı bul
-            new_contracts = after_contracts - before_contracts
-            if len(new_contracts) == 1:
-                new_contract = list(new_contracts)[0]
-                logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (liste karşılaştırma): {new_contract}{Style.RESET_ALL}")
-                return new_contract
-            
-            # Eğer direkt kontrat adresi varsa
-            if receipt.get('contractAddress'):
-                addr = receipt['contractAddress']
-                logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (receipt): {addr}{Style.RESET_ALL}")
-                return addr
-            
-            # Olayları kontrol et
-            for log in receipt.get('logs', []):
-                # Debug: Her log'u göster
-                logging.debug(f"Log inceleniyor: {log}")
-                
-                # Kontrat oluşturma olayını bul
-                if log.get('address', '').lower() == self.contract_manager_address.lower():
-                    topics = log.get('topics', [])
-                    if len(topics) > 0:
-                        # Son topic'ten adresi çıkar
-                        address_bytes = topics[-1][-40:]
-                        addr = f"0x{address_bytes}"
-                        logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (log): {addr}{Style.RESET_ALL}")
-                        return addr
-                
-                # Data'dan kontrat adresini çıkarmayı dene
-                data = log.get('data', '')
-                if len(data) >= 42:  # En az bir adres uzunluğunda
-                    potential_addresses = [data[i:i+42] for i in range(0, len(data)-40, 2) if data[i:i+2] == '0x']
-                    for addr in potential_addresses:
-                        if Web3.is_address(addr):
-                            logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (data): {addr}{Style.RESET_ALL}")
-                            return addr
-            
-            # Son çare: Tüm kontratları tara
-            all_contracts = self.get_deployed_contracts()
-            for contract in all_contracts:
-                if contract[0] == token_name:  # İsim eşleşmesi
-                    logging.info(f"{Fore.GREEN}✨ Yeni kontrat adresi bulundu (isim eşleşmesi): {contract[1]}{Style.RESET_ALL}")
-                    return contract[1]
-            
-            logging.warning(f"{Fore.YELLOW}⚠️ Kontrat adresi bulunamadı{Style.RESET_ALL}")
-            return None
-            
+            contracts = self.contract.functions.getDeployedContracts().call()
+            return contracts
         except Exception as e:
-            logging.error(f"{Fore.RED}❌ Kontrat adresi çıkarma hatası: {str(e)}{Style.RESET_ALL}")
-            return None
-    
-    def deploy_erc20(self, name, symbol, decimals, initial_supply):
+            logging.error(f"{Fore.RED}❌ Deploy edilmiş kontratlar alınırken hata: {str(e)}{Style.RESET_ALL}")
+            return []
+
+    def get_contract_address_from_receipt(self, receipt):
+        """İşlem makbuzundan kontrat adresini çıkarır"""
         try:
-            logging.info(f"{Fore.YELLOW}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
+            # Debug logları
+            logging.debug(f"İşlem makbuzu detayları:")
+            logging.debug(json.dumps(dict(receipt), indent=2, default=str))
             
-            # Kontrat fonksiyonunu hazırla
-            function = self.contract.functions.createNewERC20Contract(
-                name, symbol, decimals, initial_supply
-            )
+            # Kontrat adresi çıkarma yöntemleri
+            contract_address = None
             
-            # Gas tahmini
-            gas_estimate = function.estimate_gas({'from': self.wallet.account.address})
+            # 1. contractAddress alanından kontrol
+            if receipt.get('contractAddress'):
+                contract_address = receipt['contractAddress']
+                logging.debug(f"Kontrat adresi 'contractAddress' alanından bulundu: {contract_address}")
             
-            # İşlem verilerini hazırla
-            transaction = {
-                'to': self.contract_manager_address,
-                'data': function._encode_transaction_data(),
-                'gas': gas_estimate
-            }
+            # 2. Logs'lardan kontrol
+            elif receipt.get('logs'):
+                for log in receipt['logs']:
+                    # İlk log genelde kontrat oluşturma eventi olur
+                    if log.get('address'):
+                        contract_address = log['address']
+                        logging.debug(f"Kontrat adresi log kayıtlarından bulundu: {contract_address}")
+                        break
+            
+            # 3. to alanından kontrol (eğer varsa)
+            elif receipt.get('to'):
+                contract_address = receipt['to']
+                logging.debug(f"Kontrat adresi 'to' alanından bulundu: {contract_address}")
+            
+            if contract_address:
+                # Adresi checksum formatına çevir
+                contract_address = Web3.to_checksum_address(contract_address)
+                logging.info(f"{Fore.GREEN}✅ Kontrat adresi başarıyla çıkarıldı: {contract_address}{Style.RESET_ALL}")
+                return contract_address
+            else:
+                logging.warning(f"{Fore.YELLOW}⚠️ Kontrat adresi bulunamadı. İşlem beklemede olabilir.{Style.RESET_ALL}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"{Fore.RED}❌ Kontrat adresi çıkarılırken hata: {str(e)}{Style.RESET_ALL}")
+            return None
+
+    def deploy_erc20(self, name, symbol, decimals, initial_supply):
+        """Yeni bir ERC20 token kontratı deploy eder"""
+        try:
+            logging.info(f"{Fore.CYAN}🚀 Yeni ERC20 kontratı deploy ediliyor: {name} ({symbol}){Style.RESET_ALL}")
+            
+            # Deploy işlemini başlat
+            tx = self.contract.functions.deployERC20(
+                name,
+                symbol,
+                decimals,
+                initial_supply
+            ).build_transaction({
+                'from': self.wallet.address,
+                'nonce': self.w3.eth.get_transaction_count(self.wallet.address),
+            })
             
             # İşlemi imzala ve gönder
-            receipt = self.wallet.sign_and_send_transaction(transaction)
+            signed_tx = self.wallet.sign_and_send_transaction(tx)
             
-            if receipt and receipt.get('status') == 1:
-                # Kontrat adresini bul
-                contract_address = self.get_contract_address_from_receipt(receipt, name)
-                if contract_address:
-                    logging.info(f"{Fore.GREEN}✅ ERC20 kontratı başarıyla deploy edildi: {contract_address}{Style.RESET_ALL}")
-                else:
-                    logging.warning(f"{Fore.YELLOW}⚠️ Kontrat deploy edildi fakat adres bulunamadı{Style.RESET_ALL}")
-            else:
-                logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment başarısız{Style.RESET_ALL}")
-                
+            # İşlem makbuzunu al
+            receipt = self.w3.eth.wait_for_transaction_receipt(signed_tx)
+            
+            # Kontrat adresini çıkar
+            contract_address = self.get_contract_address_from_receipt(receipt)
+            
             return receipt, contract_address
             
         except Exception as e:
-            logging.error(f"{Fore.RED}❌ ERC20 kontrat deployment hatası: {str(e)}{Style.RESET_ALL}")
+            logging.error(f"{Fore.RED}❌ ERC20 kontratı deploy edilirken hata: {str(e)}{Style.RESET_ALL}")
             return None, None
-    
-    def get_deployed_contracts(self):
-        try:
-            contracts = self.contract.functions.getDeployedContracts().call()
-            logging.info(f"{Fore.CYAN}📋 {len(contracts)} adet deploy edilmiş kontrat bulundu{Style.RESET_ALL}")
-            return contracts
-        except Exception as e:
-            logging.error(f"{Fore.RED}❌ Deploy edilmiş kontratları alma hatası: {str(e)}{Style.RESET_ALL}")
-            return []
