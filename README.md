@@ -90,6 +90,15 @@ Bot çalıştığında şu tür çıktılar göreceksiniz:
 🔗 TX Hash: 0x3ad...ac7
 ```
 
+##  Join tg, I will post bots there too.
+T.me/getcakedieyoungx
+
+
+## For donations and buying me a coffee:
+EVM: 0xE065339713A8D9BF897d595ED89150da521a7d09
+
+SOLANA: CcBPMkpMbZ4TWE8HeUWyv9CkEVqPLJ5gYe163g5SR4Vf
+
 ## Lisans
 
 MIT
